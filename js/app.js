@@ -7,7 +7,7 @@ let stats    = { total:0, todayDate:'', todayCount:0, streak:0, lastDate:'', wee
 let activeTaskIdx = -1;
 let currentMode   = 'focus';
 let sessionCounter = 0;
-let timeLeft = 0, totalTime = 0, running = false, timerInterval = null;
+let timeLeft = 0, totalTime = 0, running = false, timerInterval = null, expectedEndTime = 0;
 let currentSound = null, audioCtx = null, volume = 0.5;
 let currentAudio = null;
 let settingsOpen = false;
@@ -122,9 +122,11 @@ async function syncDataFromDatabase() {
 
     // Refresh UI
     updateSettingsInputs();
-    timeLeft = totalTime = getDuration(currentMode);
-    updateDisplay();
-    updateRing(1);
+    if (!running) {
+      timeLeft = totalTime = getDuration(currentMode);
+      updateDisplay();
+      updateRing(1);
+    }
     renderTasks();
     updateStreakDisplay();
     updateSessionLabel();
@@ -175,23 +177,28 @@ function toggleTimer(){ running?pause():start(); }
 function start(){
   if(timeLeft<=0) resetTimer();
   running=true;
+  expectedEndTime = Date.now() + timeLeft * 1000;
   document.getElementById('play-btn').innerHTML='&#9646;&#9646;';
   updateModeTabs();
   timerInterval=setInterval(tick,1000);
 }
 function pause(){
   running=false;
+  if (expectedEndTime > 0) {
+    timeLeft = Math.max(0, Math.round((expectedEndTime - Date.now()) / 1000));
+  }
   document.getElementById('play-btn').innerHTML='&#9654;';
   updateModeTabs();
   clearInterval(timerInterval);
 }
 function resetTimer(){
   pause(); timeLeft=totalTime=getDuration(currentMode);
+  expectedEndTime = 0;
   updateDisplay(); updateRing(1);
   updateModeTabs();
 }
 function tick(){
-  timeLeft--;
+  timeLeft = Math.max(0, Math.round((expectedEndTime - Date.now()) / 1000));
   updateDisplay(); updateRing(timeLeft/totalTime);
   if(timeLeft<=0) sessionEnd();
 }
