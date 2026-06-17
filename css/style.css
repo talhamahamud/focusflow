@@ -1584,3 +1584,96 @@ input:checked+.tog-track::before {
   background: #fff5f5;
   border-color: #feb2b2;
 }
+
+/* ══════════════════════════════════════
+   FLOATING MINI TIMER
+══════════════════════════════════════ */
+.float-timer {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: auto;
+  height: auto;
+  background: #FCFCFC;
+  border: 1px solid #E2E2E2;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0,0,0,0.06);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  user-select: none;
+  padding: 7px 14px;
+  animation: float-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* close button revealed on hover */
+  position: fixed;
+}
+
+.float-timer:active {
+  cursor: grabbing;
+}
+
+.float-timer:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16), 0 1px 6px rgba(0,0,0,0.08);
+}
+
+@keyframes float-in {
+  from { opacity: 0; transform: scale(0.82) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+.float-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: #1A120B;
+  letter-spacing: -0.3px;
+  line-height: 1;
+  transition: color 0.35s;
+  white-space: nowrap;
+}
+
+.float-timer[data-running="true"] .float-time {
+  color: #1ba872;
+}
+
+.float-timer[data-mode="short"] .float-time,
+.float-timer[data-mode="long"]  .float-time {
+  color: #c97700;
+}
+
+/* Close button — hidden by default, appears on hover */
+.float-close {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #E2E2E2;
+  background: #FCFCFC;
+  color: #909090;
+  cursor: pointer;
+  font-size: 0.48rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.18s, color 0.15s, background 0.15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+
+.float-timer:hover .float-close {
+  opacity: 1;
+}
+
+.float-close:hover {
+  color: #e05c3a;
+  background: #fff5f5;
+  border-color: #feb2b2;
+}
+
+/* Removed: .float-header, .float-mode (no longer used) */

@@ -29,6 +29,8 @@ if (supabaseUrl && supabaseKey) {
 }
 
 /* ─ Storage & Sync ─ */
+let dbSyncTimeout = null;
+
 async function save(){
   // Local fallback
   localStorage.setItem('ff_tasks',    JSON.stringify(tasks));
@@ -36,25 +38,31 @@ async function save(){
   localStorage.setItem('ff_stats',    JSON.stringify(stats));
   localStorage.setItem('ff_settings', JSON.stringify(settings));
 
-  // Sync to Supabase database if logged in
+  // Debounce database sync by 300ms to avoid multiple rapid writes
   if (supabaseClient && currentUser) {
-    try {
-      const { error } = await supabaseClient
-        .from('user_data')
-        .upsert({
-          user_id: currentUser.id,
-          tasks: tasks,
-          sessions: sessions.slice(0, 200),
-          stats: stats,
-          settings: settings,
-          updated_at: new Date().toISOString()
-        });
-      if (error) {
-        console.error("Supabase sync error on save:", error);
-      }
-    } catch (e) {
-      console.error("Failed to sync to database:", e);
+    if (dbSyncTimeout) clearTimeout(dbSyncTimeout);
+    dbSyncTimeout = setTimeout(syncToDatabase, 300);
+  }
+}
+
+async function syncToDatabase() {
+  if (!supabaseClient || !currentUser) return;
+  try {
+    const { error } = await supabaseClient
+      .from('user_data')
+      .upsert({
+        user_id: currentUser.id,
+        tasks: tasks,
+        sessions: sessions.slice(0, 200),
+        stats: stats,
+        settings: settings,
+        updated_at: new Date().toISOString()
+      });
+    if (error) {
+      console.error("Supabase sync error on database sync:", error);
     }
+  } catch (e) {
+    console.error("Failed to sync to database:", e);
   }
 }
 
@@ -74,6 +82,7 @@ function updateSettingsInputs() {
   document.getElementById('s-interval').value     = settings.interval;
   document.getElementById('s-auto-break').checked = settings.autoBreak;
   document.getElementById('s-auto-focus').checked = settings.autoFocus;
+  document.getElementById('s-floating').checked   = !!settings.floatingTimer;
 }
 
 async function syncDataFromDatabase() {
@@ -122,7 +131,9 @@ async function syncDataFromDatabase() {
 
     // Refresh UI
     updateSettingsInputs();
-    if (!running) {
+    if (settings.timerState) {
+      restoreTimerState();
+    } else if (!running) {
       timeLeft = totalTime = getDuration(currentMode);
       updateDisplay();
       updateRing(1);
@@ -136,6 +147,80 @@ async function syncDataFromDatabase() {
   } catch (e) {
     console.error("Database sync exception:", e);
   }
+}
+
+function saveTimerState() {
+  const timerState = {
+    timeLeft,
+    totalTime,
+    running,
+    expectedEndTime,
+    currentMode,
+    updatedAt: Date.now()
+  };
+  settings.timerState = timerState;
+  save();
+}
+
+function restoreTimerState() {
+  const timerState = settings.timerState;
+  if (!timerState) return;
+
+  const now = Date.now();
+  const targetMode = timerState.currentMode || 'focus';
+  const targetRunning = !!timerState.running;
+  const targetExpectedEndTime = timerState.expectedEndTime || 0;
+  const targetTotalTime = timerState.totalTime || getDuration(targetMode);
+  const targetTimeLeft = timerState.timeLeft !== undefined ? timerState.timeLeft : getDuration(targetMode);
+
+  // If local timer is already in this exact state, do nothing to avoid stutters
+  if (
+    currentMode === targetMode &&
+    running === targetRunning &&
+    expectedEndTime === targetExpectedEndTime &&
+    totalTime === targetTotalTime
+  ) {
+    return;
+  }
+
+  // Otherwise, apply the state change
+  currentMode = targetMode;
+  document.querySelectorAll('.mode-tab').forEach((t, i) =>
+    t.classList.toggle('active', ['focus', 'short', 'long'][i] === currentMode));
+  document.getElementById('timer-card').setAttribute('data-mode', currentMode);
+  document.getElementById('timer-label').textContent =
+    currentMode === 'focus' ? 'Focus Session' : currentMode === 'short' ? 'Short Break' : 'Long Break';
+
+  totalTime = targetTotalTime;
+
+  if (targetRunning && targetExpectedEndTime > now) {
+    expectedEndTime = targetExpectedEndTime;
+    timeLeft = Math.max(0, Math.round((expectedEndTime - now) / 1000));
+    running = true;
+    document.getElementById('play-btn').innerHTML = '&#9646;&#9646;';
+    updateModeTabs();
+    clearInterval(timerInterval);
+    timerInterval = setInterval(tick, 1000);
+  } else if (targetRunning && targetExpectedEndTime <= now) {
+    timeLeft = 0;
+    expectedEndTime = 0;
+    running = false;
+    document.getElementById('play-btn').innerHTML = '&#9654;';
+    updateModeTabs();
+    updateDisplay();
+    updateRing(0);
+    sessionEnd();
+  } else {
+    timeLeft = targetTimeLeft;
+    expectedEndTime = 0;
+    running = false;
+    document.getElementById('play-btn').innerHTML = '&#9654;';
+    updateModeTabs();
+    updateDisplay();
+    updateRing(totalTime > 0 ? timeLeft / totalTime : 1);
+  }
+  updateDisplay();
+  updateSessionLabel();
 }
 
 /* ─ Pages ─ */
@@ -170,7 +255,11 @@ function setMode(mode, auto=false){
   updateDisplay(); updateRing(1);
   updateSessionLabel();
   updateModeTabs();
-  if(auto) toggleTimer();
+  if(auto) {
+    toggleTimer();
+  } else {
+    saveTimerState();
+  }
 }
 
 function toggleTimer(){ running?pause():start(); }
@@ -181,6 +270,7 @@ function start(){
   document.getElementById('play-btn').innerHTML='&#9646;&#9646;';
   updateModeTabs();
   timerInterval=setInterval(tick,1000);
+  saveTimerState();
 }
 function pause(){
   running=false;
@@ -190,12 +280,14 @@ function pause(){
   document.getElementById('play-btn').innerHTML='&#9654;';
   updateModeTabs();
   clearInterval(timerInterval);
+  saveTimerState();
 }
 function resetTimer(){
   pause(); timeLeft=totalTime=getDuration(currentMode);
   expectedEndTime = 0;
   updateDisplay(); updateRing(1);
   updateModeTabs();
+  saveTimerState();
 }
 function tick(){
   timeLeft = Math.max(0, Math.round((expectedEndTime - Date.now()) / 1000));
@@ -211,12 +303,24 @@ function sessionEnd(){
   clearInterval(timerInterval); running=false;
   document.getElementById('play-btn').innerHTML='&#9654;';
   updateModeTabs();
+
+  // Set the timerState to a completed state
+  settings.timerState = {
+    timeLeft: 0,
+    totalTime,
+    running: false,
+    expectedEndTime: 0,
+    currentMode,
+    updatedAt: Date.now()
+  };
+
   if(currentMode==='focus'){
     sessionCounter++;
     recordSession();
     showModal('focus', sessionCounter%settings.interval===0);
     notify('Focus session complete.', 'focus');
   } else {
+    save();
     showModal(currentMode, false);
     notify('Break finished. Ready to focus.', 'break');
   }
@@ -246,6 +350,7 @@ function updateDisplay(){
   const s=(timeLeft%60).toString().padStart(2,'0');
   document.getElementById('timer-display').textContent=`${m}:${s}`;
   document.title=`${m}:${s} \u2014 FocusFlow`;
+  updateFloatingTimer(`${m}:${s}`);
 }
 function updateRing(f){ document.getElementById('ring').style.strokeDashoffset=CIRC*(1-f); }
 function updateSessionLabel(){
@@ -859,8 +964,13 @@ async function handleLogout() {
   // Load local data as fallback
   loadLocalData();
   
-  timeLeft=totalTime=getDuration('focus');
-  updateDisplay(); updateRing(1); renderTasks(); updateStreakDisplay(); updateSessionLabel();
+  if (settings.timerState) {
+    restoreTimerState();
+  } else {
+    timeLeft=totalTime=getDuration('focus');
+    updateDisplay(); updateRing(1);
+  }
+  renderTasks(); updateStreakDisplay(); updateSessionLabel();
   
   const today=new Date().getFullYear() + '-'
     + String(new Date().getMonth()+1).padStart(2,'0') + '-'
@@ -902,4 +1012,206 @@ async function handleLogout() {
     document.getElementById('login-btn').style.display = 'block';
     document.getElementById('logout-btn').style.display = 'none';
   }
+
+  // Sync from Supabase on tab visibility change
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      syncDataFromDatabase();
+    }
+  });
+})();
+
+/* ─ Floating Mini Timer ────────────────────────────────────────────────────
+   Uses the Document Picture-in-Picture API (Chrome 116+) when available
+   so the timer floats above ALL desktop apps.
+   Falls back to a draggable in-browser overlay for other browsers.
+─────────────────────────────────────────────────────────────────────────── */
+let pipWindow = null;
+let floatActive = false;
+
+function modeLabel(m) {
+  return m === 'focus' ? 'Focus' : m === 'short' ? 'Short Break' : 'Long Break';
+}
+
+async function toggleFloatingTimer(enable) {
+  // Sync the settings checkbox
+  const cb = document.getElementById('s-floating');
+  if (cb) cb.checked = !!enable;
+  settings.floatingTimer = !!enable;
+  // Persist state (but don't trigger a heavy save on every tick)
+  localStorage.setItem('ff_settings', JSON.stringify(settings));
+
+  if (enable) {
+    floatActive = true;
+    if ('documentPictureInPicture' in window) {
+      await openPiP();
+    } else {
+      openFloatOverlay();
+    }
+  } else {
+    floatActive = false;
+    closePiP();
+    closeFloatOverlay();
+  }
+}
+
+/* ── Document PiP (stays on top of entire desktop) ─────────────────────── */
+async function openPiP() {
+  try {
+    if (pipWindow) return; // already open
+    pipWindow = await window.documentPictureInPicture.requestWindow({
+      width: 100,
+      height: 36,
+      disallowReturnToOpener: false,
+    });
+
+    // Build content inside PiP window — light theme, timer only
+    const doc = pipWindow.document;
+    doc.documentElement.style.cssText =
+      'margin:0;padding:0;background:#FCFCFC;overflow:hidden;';
+    doc.body.style.cssText =
+      'margin:0;padding:0;width:100px;height:36px;display:flex;align-items:center;justify-content:center;background:#FCFCFC;';
+
+    const timeEl = doc.createElement('div');
+    timeEl.id = 'pip-time';
+    timeEl.style.cssText = [
+      'font-family:ui-monospace,monospace',
+      'font-size:18px',
+      'font-weight:500',
+      'color:#1A120B',
+      'letter-spacing:-0.3px',
+      'line-height:1',
+      'font-variant-numeric:tabular-nums',
+      'white-space:nowrap',
+      'user-select:none'
+    ].join(';');
+    timeEl.textContent = document.getElementById('timer-display').textContent;
+
+    doc.body.appendChild(timeEl);
+
+    // Set initial color
+    updatePiPColors();
+
+    // When user closes PiP window natively
+    pipWindow.addEventListener('pagehide', () => {
+      pipWindow = null;
+      floatActive = false;
+      const cb = document.getElementById('s-floating');
+      if (cb) cb.checked = false;
+      settings.floatingTimer = false;
+      localStorage.setItem('ff_settings', JSON.stringify(settings));
+    });
+
+  } catch (e) {
+    console.warn('PiP failed, falling back to overlay:', e);
+    openFloatOverlay();
+  }
+}
+
+function closePiP() {
+  if (pipWindow) {
+    try { pipWindow.close(); } catch(e){}
+    pipWindow = null;
+  }
+}
+
+function updatePiPColors() {
+  if (!pipWindow) return;
+  const timeEl = pipWindow.document.getElementById('pip-time');
+  if (!timeEl) return;
+  if (currentMode === 'focus') {
+    timeEl.style.color = running ? '#1ba872' : '#1A120B';
+  } else {
+    timeEl.style.color = '#c97700';
+  }
+}
+
+/* ── In-browser floating overlay (fallback) ─────────────────────────────── */
+function openFloatOverlay() {
+  const el = document.getElementById('float-timer');
+  if (!el) return;
+  el.style.display = 'flex';
+  el.setAttribute('data-running', running ? 'true' : 'false');
+  el.setAttribute('data-mode', currentMode);
+  makeDraggable(el);
+  // Sync initial text
+  const t = document.getElementById('timer-display').textContent;
+  const fTime = document.getElementById('float-time-display');
+  if (fTime) fTime.textContent = t;
+}
+
+function closeFloatOverlay() {
+  const el = document.getElementById('float-timer');
+  if (el) el.style.display = 'none';
+}
+
+function updateFloatingTimer(timeStr) {
+  // Update in-browser overlay
+  const floatEl = document.getElementById('float-timer');
+  if (floatEl && floatEl.style.display !== 'none') {
+    const fTime = document.getElementById('float-time-display');
+    if (fTime) fTime.textContent = timeStr;
+    floatEl.setAttribute('data-running', running ? 'true' : 'false');
+    floatEl.setAttribute('data-mode', currentMode);
+  }
+
+  // Update PiP window
+  if (pipWindow) {
+    const pipTime = pipWindow.document.getElementById('pip-time');
+    if (pipTime) pipTime.textContent = timeStr;
+    updatePiPColors();
+  }
+}
+
+/* ── Draggable helper ───────────────────────────────────────────────────── */
+function makeDraggable(el) {
+  // Prevent double-binding
+  if (el._dragBound) return;
+  el._dragBound = true;
+
+  let startX, startY, initLeft, initTop;
+
+  el.addEventListener('mousedown', function(e) {
+    if (e.target.classList.contains('float-close')) return;
+    e.preventDefault();
+    const rect = el.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    initLeft = rect.left;
+    initTop  = rect.top;
+
+    // Switch from bottom/right anchoring to top/left for free drag
+    el.style.bottom = 'auto';
+    el.style.right  = 'auto';
+    el.style.left   = initLeft + 'px';
+    el.style.top    = initTop  + 'px';
+
+    function onMove(e) {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      // Clamp to viewport
+      const maxX = window.innerWidth  - el.offsetWidth;
+      const maxY = window.innerHeight - el.offsetHeight;
+      el.style.left = Math.min(maxX, Math.max(0, initLeft + dx)) + 'px';
+      el.style.top  = Math.min(maxY, Math.max(0, initTop  + dy)) + 'px';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+}
+
+/* ── Restore floating timer on startup if enabled ───────────────────────── */
+(function restoreFloat() {
+  // Run after a small delay so DOM is ready
+  setTimeout(() => {
+    if (settings.floatingTimer) {
+      const cb = document.getElementById('s-floating');
+      if (cb) cb.checked = true;
+      toggleFloatingTimer(true);
+    }
+  }, 600);
 })();
