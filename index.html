@@ -12,9 +12,22 @@
     href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
+  <script>
+    // Detect if running in Electron timer window and apply styling classes early
+    const urlParams = new URLSearchParams(window.location.search);
+    const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+    if ((urlParams.has('window') && urlParams.get('window') === 'timer') || isElectron) {
+      document.documentElement.classList.add('electron-window');
+      document.addEventListener('DOMContentLoaded', () => {
+        document.body.classList.add('electron-timer-window');
+      });
+    }
+  </script>
 </head>
 
 <body>
+  <!-- Electron Close Button -->
+  <button class="electron-close-btn" onclick="window.close()" title="Close Application">&times;</button>
   <div id="hm-tooltip"></div>
 
   <!-- NAV -->

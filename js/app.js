@@ -12,6 +12,55 @@ let currentSound = null, audioCtx = null, volume = 0.5;
 let currentAudio = null;
 let settingsOpen = false;
 
+/* ─ WebSocket sync to Electron floating widget ─ */
+let _wsClient = null;
+let _wsRetryTimer = null;
+const WS_PORT = 49000;
+
+function wsSync_connect() {
+  // Only run in a real browser, not in Electron renderer itself
+  if (navigator.userAgent.toLowerCase().includes('electron')) return;
+
+  if (_wsClient && (_wsClient.readyState === WebSocket.OPEN || _wsClient.readyState === WebSocket.CONNECTING)) return;
+  try {
+    // 127.0.0.1 is used instead of localhost to bypass HTTPS mixed-content blocking
+    // This allows your deployed web app to connect to the local widget seamlessly!
+    _wsClient = new WebSocket(`ws://127.0.0.1:${WS_PORT}`);
+    _wsClient.onopen = () => {
+      if (_wsRetryTimer) { clearTimeout(_wsRetryTimer); _wsRetryTimer = null; }
+      // Immediately push current state so widget starts in sync
+      wsSync_send();
+    };
+    _wsClient.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'toggle') toggleTimer();
+        else if (msg.type === 'reset')  resetTimer();
+      } catch(e) {}
+    };
+    _wsClient.onclose = () => {
+      _wsClient = null;
+      // Retry in 3 s (widget may not be running yet)
+      _wsRetryTimer = setTimeout(wsSync_connect, 3000);
+    };
+    _wsClient.onerror = () => { _wsClient && _wsClient.close(); };
+  } catch(e) {}
+}
+
+function wsSync_send() {
+  if (!_wsClient || _wsClient.readyState !== WebSocket.OPEN) return;
+  const m = Math.floor(timeLeft/60).toString().padStart(2,'0');
+  const s = (timeLeft%60).toString().padStart(2,'0');
+  try {
+    _wsClient.send(JSON.stringify({ type:'sync', timeStr:`${m}:${s}`, mode:currentMode, running }));
+  } catch(e) {}
+}
+
+// Start trying to connect after page load
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', () => setTimeout(wsSync_connect, 800));
+}
+
 // Supabase Configuration
 // USER: Enter your Supabase credentials here to enable auth and database sync
 const supabaseUrl = 'https://eolzzpkwpxfcgvvgnqhm.supabase.co'; 
@@ -1041,6 +1090,12 @@ async function toggleFloatingTimer(enable) {
   // Persist state (but don't trigger a heavy save on every tick)
   localStorage.setItem('ff_settings', JSON.stringify(settings));
 
+  // If running in Electron, the window itself is the floating timer
+  const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+  if (isElectron) {
+    return;
+  }
+
   if (enable) {
     floatActive = true;
     if ('documentPictureInPicture' in window) {
@@ -1161,6 +1216,9 @@ function updateFloatingTimer(timeStr) {
     if (pipTime) pipTime.textContent = timeStr;
     updatePiPColors();
   }
+
+  // Push to Electron floating widget via WebSocket
+  wsSync_send();
 }
 
 /* ── Draggable helper ───────────────────────────────────────────────────── */

@@ -1677,3 +1677,111 @@ input:checked+.tog-track::before {
 }
 
 /* Removed: .float-header, .float-mode (no longer used) */
+
+
+/* ══════════════════════════════════════
+   ELECTRON TINY FLOATING WIDGET
+   120 × 40 px  —  timer digits only
+   ══════════════════════════════════════ */
+
+/* Root and body: transparent, full-area drag surface */
+html.electron-window,
+html.electron-window body {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+
+body.electron-timer-window {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: drag;
+}
+
+/* Hide every web-app element */
+body.electron-timer-window nav,
+body.electron-timer-window #analytics-page,
+body.electron-timer-window .timer-layout > .right-col,
+body.electron-timer-window .timer-layout > .left-col > .mode-tabs,
+body.electron-timer-window .timer-layout > .left-col > .timer-body > .timer-mode-label,
+body.electron-timer-window .timer-layout > .left-col > .timer-body > .ring-wrap,
+body.electron-timer-window .timer-layout > .left-col > .timer-body > .controls,
+body.electron-timer-window .timer-layout > .left-col > .shortcuts,
+body.electron-timer-window .float-timer,
+body.electron-timer-window .toast,
+body.electron-timer-window .modal-bg,
+body.electron-timer-window .electron-close-btn,
+body.electron-timer-window #hm-tooltip {
+  display: none !important;
+}
+
+/* Timer page: fill the window, transparent */
+body.electron-timer-window #timer-page {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+
+body.electron-timer-window .timer-layout {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+
+body.electron-timer-window .left-col {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent !important;
+}
+
+/* Timer body: the dark pill-shaped container */
+body.electron-timer-window .timer-body {
+  width: 100vw;
+  height: 100vh;
+  background: rgba(20, 14, 8, 0.88);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  -webkit-app-region: drag;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* The time digits — the only visible element */
+body.electron-timer-window .timer-time {
+  font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+  font-size: 1.05rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+  color: #e8e2da;        /* default: idle white-ish */
+  line-height: 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+  user-select: none !important;
+  -webkit-app-region: no-drag; /* so clicks pass through to JS */
+  cursor: pointer;
+  transition: color 0.4s ease;
+}

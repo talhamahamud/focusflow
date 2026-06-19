@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Lock file (optional - remove this line if you want it tracked)
+package-lock.json
+
+# Electron build output
+dist/
+out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+*.suo
+*.user
