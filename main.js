@@ -40,8 +40,8 @@ function createWindow() {
 }
 
 function startWebSocketServer() {
-  wss = new WebSocket.Server({ port: 49000 });
-  console.log('[FocusFlow Widget] WebSocket server started on port 49000');
+  wss = new WebSocket.Server({ host: '127.0.0.1', port: 49000 });
+  console.log('[FocusFlow Widget] WebSocket server started on 127.0.0.1:49000');
 
   wss.on('connection', (ws) => {
     console.log('[FocusFlow Widget] Web browser connected');
