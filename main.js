@@ -16,7 +16,8 @@ function createWindow() {
     show: false,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      sandbox: false
     }
   });
 
@@ -49,7 +50,7 @@ function startWebSocketServer() {
     // Forward sync messages from browser → Electron renderer widget
     ws.on('message', (raw) => {
       try {
-        const data = JSON.parse(raw);
+        const data = JSON.parse(raw.toString());
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('ws-message', data);
         }
