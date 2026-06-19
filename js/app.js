@@ -131,7 +131,8 @@ function updateSettingsInputs() {
   document.getElementById('s-interval').value     = settings.interval;
   document.getElementById('s-auto-break').checked = settings.autoBreak;
   document.getElementById('s-auto-focus').checked = settings.autoFocus;
-  document.getElementById('s-floating').checked   = !!settings.floatingTimer;
+  const sFloating = document.getElementById('s-floating');
+  if (sFloating) sFloating.checked = !!settings.floatingTimer;
 }
 
 async function syncDataFromDatabase() {

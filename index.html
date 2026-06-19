@@ -26,8 +26,7 @@
 </head>
 
 <body>
-  <!-- Electron Close Button -->
-  <button class="electron-close-btn" onclick="window.close()" title="Close Application">&times;</button>
+  <!-- Electron Close Button Removed -->
   <div id="hm-tooltip"></div>
 
   <!-- NAV -->
@@ -124,10 +123,6 @@
             <div class="srow">
               <span class="slabel">Auto-start focus</span>
               <label class="toggle"><input type="checkbox" id="s-auto-focus"><span class="tog-track"></span></label>
-            </div>
-            <div class="srow">
-              <span class="slabel">Floating Timer Window</span>
-              <label class="toggle"><input type="checkbox" id="s-floating" onchange="toggleFloatingTimer(this.checked)"><span class="tog-track"></span></label>
             </div>
             <button class="save-btn" onclick="saveSettings()">Save Settings</button>
             <button id="logout-btn" class="logout-btn" onclick="handleLogout()" style="display: none;">Sign Out</button>
