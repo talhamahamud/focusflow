@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FocusFlow</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="shortcut icon" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+  <div id="hm-tooltip"></div>
+
+  <!-- NAV -->
+  <nav>
+    <a class="brand" href="#">FocusFlow</a>
+    <div class="nav-center">
+      <button class="nav-btn active" id="nav-timer" onclick="showPage('timer')">Timer</button>
+      <button class="nav-btn" id="nav-analytics" onclick="showPage('analytics')">Analytics</button>
+    </div>
+    <div class="nav-right">
+      <div class="streak-pill">
+        <span class="streak-dot"></span>
+        <b id="streak-num">0</b> day streak
+      </div>
+      <button id="login-btn" class="login-nav-btn" onclick="openAuthModal()" style="display: none;">Login</button>
+    </div>
+  </nav>
+
+  <!-- ════════════════════════════════════
+     TIMER PAGE
+════════════════════════════════════ -->
+  <div id="timer-page" class="page active">
+    <div class="timer-layout">
+
+      <!-- LEFT -->
+      <div class="left-col">
+        <div class="mode-tabs">
+          <button class="mode-tab active" onclick="setMode('focus')">Focus</button>
+          <button class="mode-tab" onclick="setMode('short')">Short Break</button>
+          <button class="mode-tab" onclick="setMode('long')">Long Break</button>
+        </div>
+
+        <div class="timer-body" id="timer-card" data-mode="focus">
+          <div class="timer-mode-label" id="timer-label">Focus Session</div>
+
+          <div class="ring-wrap">
+            <svg class="timer-ring" width="260" height="260" viewBox="0 0 260 260">
+              <circle class="ring-track" cx="130" cy="130" r="108" fill="none" stroke-width="14" />
+              <circle class="ring-fill" id="ring" cx="130" cy="130" r="108" fill="none" stroke-width="14"
+                stroke-dasharray="678.58" stroke-dashoffset="0" />
+            </svg>
+            <div class="timer-inner">
+              <div class="timer-time" id="timer-display">25:00</div>
+              <div class="timer-session" id="session-count-label">Session 1</div>
+              <div class="timer-end-time" id="end-time-display"></div>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="ctrl" onclick="resetTimer()" title="Reset (R)">&#8635;</button>
+            <button class="ctrl play" id="play-btn" onclick="toggleTimer()"
+              title="Start / Pause (Space)">&#9654;</button>
+            <button class="ctrl" onclick="nextSession()" title="Next (N)">&#9654;&#9654;</button>
+          </div>
+
+          <div class="shortcuts">
+            <div class="sc-item"><kbd>Space</kbd> Start / Pause</div>
+            <div class="sc-item"><kbd>R</kbd> Reset</div>
+            <div class="sc-item"><kbd>N</kbd> Next</div>
+            <div class="sc-item"><kbd>S</kbd> Settings</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="right-col">
+
+        <!-- Settings popup -->
+        <div class="settings-wrap" id="settings-wrap">
+          <button class="settings-btn" id="settings-btn" onclick="toggleSettings()">
+            <span>Settings</span>
+            <span class="settings-chevron" id="s-chevron">&#9660;</span>
+          </button>
+          <div class="settings-drop" id="settings-drop">
+            <div class="srow">
+              <span class="slabel">Focus duration (min)</span>
+              <input class="sinput" type="number" id="s-focus" value="25" min="1" max="99" />
+            </div>
+            <div class="srow">
+              <span class="slabel">Short break (min)</span>
+              <input class="sinput" type="number" id="s-short" value="5" min="1" max="30" />
+            </div>
+            <div class="srow">
+              <span class="slabel">Long break (min)</span>
+              <input class="sinput" type="number" id="s-long" value="15" min="1" max="60" />
+            </div>
+            <div class="srow">
+              <span class="slabel">Long break every N sessions</span>
+              <input class="sinput" type="number" id="s-interval" value="4" min="2" max="10" />
+            </div>
+            <div class="srow">
+              <span class="slabel">Auto-start breaks</span>
+              <label class="toggle"><input type="checkbox" id="s-auto-break"><span class="tog-track"></span></label>
+            </div>
+            <div class="srow">
+              <span class="slabel">Auto-start focus</span>
+              <label class="toggle"><input type="checkbox" id="s-auto-focus"><span class="tog-track"></span></label>
+            </div>
+            <div class="srow">
+              <span class="slabel">Floating mini timer</span>
+              <label class="toggle"><input type="checkbox" id="s-floating" onchange="toggleFloatingTimer(this.checked)"><span class="tog-track"></span></label>
+            </div>
+            <button class="save-btn" onclick="saveSettings()">Save Settings</button>
+            <button id="logout-btn" class="logout-btn" onclick="handleLogout()" style="display: none;">Sign Out</button>
+          </div>
+        </div>
+
+        <!-- Tasks -->
+        <div class="g-panel">
+          <div class="g-panel-head">
+            <span class="g-panel-title">Tasks</span>
+            <span class="g-panel-meta" id="task-count">0</span>
+          </div>
+          <div class="g-panel-body">
+            <div class="task-row">
+              <input class="task-field" type="text" id="task-input" placeholder="Add a task..." maxlength="80"
+                onkeydown="if(event.key==='Enter')addTask()" />
+              <button class="task-add-btn" onclick="addTask()">Add</button>
+            </div>
+            <div class="task-list" id="task-list">
+              <div class="task-empty" id="task-empty">No tasks yet. Add one above.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ambient -->
+        <div class="g-panel">
+          <div class="g-panel-head">
+            <span class="g-panel-title">Ambient Sound</span>
+            <span class="g-panel-meta" id="ambient-status">off</span>
+          </div>
+          <div class="g-panel-body">
+            <div class="sound-grid">
+              <button class="sound-btn" id="snd-rain" onclick="selectSound('rain')">Rain</button>
+              <button class="sound-btn" id="snd-forest" onclick="selectSound('forest')">Forest</button>
+              <button class="sound-btn" id="snd-brown" onclick="selectSound('brown')">Brown</button>
+              <button class="sound-btn" id="snd-thunder" onclick="selectSound('thunder')">Thunderstorm</button>
+            </div>
+            <div class="vol-row">
+              <button class="vol-step-btn" onclick="stepVolume(-0.1)" title="Decrease volume">−</button>
+              <input class="vol-range" type="range" id="vol-slider" min="0" max="1" step="0.01" value="0.5"
+                oninput="setVolume(this.value)" />
+              <button class="vol-step-btn" onclick="stepVolume(0.1)" title="Increase volume">+</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+     ANALYTICS PAGE
+════════════════════════════════════ -->
+  <div id="analytics-page" class="page">
+    <div class="page-heading">Analytics &mdash; your focus record</div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Today's Total Hours</div>
+        <div class="stat-value" id="a-today">0</div>
+        <div class="stat-sub" id="a-today-min">hours focused</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Current Streak</div>
+        <div class="stat-value" id="a-streak">0</div>
+        <div class="stat-sub">days in a row</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Monthly Total Hours</div>
+        <div class="stat-value" id="a-total">0</div>
+        <div class="stat-sub" id="a-total-hrs">hours focused</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-heading">Weekly Overview &mdash; Total Hours</div>
+      <div class="chart-bars" id="chart-bars"></div>
+    </div>
+
+    <div class="heatmap-card">
+      <div class="heatmap-top">
+        <div class="heatmap-heading">Activity &mdash; Pomodoro Contribution</div>
+        <div class="heatmap-metrics">
+          <div class="hm-metric">
+            <div class="hm-metric-val" id="hm-total">0</div>
+            <div class="hm-metric-lbl">Total Hours in this Year</div>
+          </div>
+          <div class="hm-metric">
+            <div class="hm-metric-val" id="hm-active-days">0</div>
+            <div class="hm-metric-lbl">Active Days</div>
+          </div>
+          <div class="hm-metric">
+            <div class="hm-metric-val" id="hm-longest">0</div>
+            <div class="hm-metric-lbl">Longest Streak</div>
+          </div>
+        </div>
+      </div>
+      <div id="heatmap-grid"></div>
+      <div class="heatmap-footer">
+        <span class="hm-legend-label">Less</span>
+        <div class="hm-legend-cells">
+          <div class="hm-legend-cell" style="background:#EBEDF0"></div>
+          <div class="hm-legend-cell" style="background:#9BE9A8"></div>
+          <div class="hm-legend-cell" style="background:#40C463"></div>
+          <div class="hm-legend-cell" style="background:#30A14E"></div>
+          <div class="hm-legend-cell" style="background:#216E39"></div>
+        </div>
+        <span class="hm-legend-label">More</span>
+      </div>
+    </div>
+
+    <div class="log-card">
+      <div class="log-head">Today's Sessions</div>
+      <div id="log-body">
+        <div class="log-empty">No sessions yet. Complete a focus session to begin.</div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Modal -->
+  <div class="modal-bg" id="modal">
+    <div class="modal-box">
+      <div class="modal-rule"></div>
+      <div class="modal-title" id="modal-title">Session Complete</div>
+      <div class="modal-sub" id="modal-sub">Good work. Time for a short rest.</div>
+      <div class="modal-actions">
+        <button class="modal-primary" id="modal-action">Short Break</button>
+        <button class="modal-secondary" onclick="dismissModal()">Dismiss</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Modal -->
+  <div class="modal-bg" id="auth-modal">
+    <div class="modal-box auth-box">
+      <button class="modal-close" onclick="closeAuthModal()">&times;</button>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="setAuthTab('login')">Login</button>
+        <button class="auth-tab" id="tab-signup" onclick="setAuthTab('signup')">Sign Up</button>
+      </div>
+      <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+        <div class="auth-input-group">
+          <label for="auth-email">Email</label>
+          <input type="email" id="auth-email" required placeholder="name@example.com" />
+        </div>
+        <div class="auth-input-group">
+          <label for="auth-password">Password</label>
+          <input type="password" id="auth-password" required placeholder="••••••••" minlength="6" />
+        </div>
+        <div id="auth-error" class="auth-error-msg"></div>
+        <button type="submit" class="modal-primary auth-submit-btn" id="auth-submit-btn">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+
+</html>
