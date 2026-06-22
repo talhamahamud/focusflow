@@ -108,6 +108,9 @@ async function loadLocalData(){
     console.error("Failed to load local data from Dexie", e);
   }
   
+  const todayStrLocal = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0') + '-' + String(new Date().getDate()).padStart(2,'0');
+  sessionCounter = (stats && stats.todayDate === todayStrLocal) ? (stats.todayCount || 0) : 0;
+  
   updateSettingsInputs();
 }
 
@@ -143,6 +146,9 @@ async function syncDataFromDatabase() {
       sessions = data.sessions || [];
       stats = Object.assign({ total:0, todayDate:'', todayCount:0, streak:0, lastDate:'', weekData:{}, dailySeconds:{} }, data.stats || {});
       settings = Object.assign({ focus:25, short:5, long:15, interval:4, autoBreak:false, autoFocus:false }, data.settings || {});
+      
+      const todayStrSync = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0') + '-' + String(new Date().getDate()).padStart(2,'0');
+      sessionCounter = (stats && stats.todayDate === todayStrSync) ? (stats.todayCount || 0) : 0;
       
       // Update cache
       await db.kv.bulkPut([
