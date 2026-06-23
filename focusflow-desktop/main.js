@@ -150,8 +150,23 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
 
-  // Check for updates quietly in the background
-  autoUpdater.checkForUpdatesAndNotify();
+  // Check for updates in the background
+  autoUpdater.checkForUpdates();
+
+  autoUpdater.on('update-downloaded', (info) => {
+    const { dialog } = require('electron');
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Ready',
+      message: 'A new version of FocusFlow has been downloaded and is ready to install.',
+      detail: 'Would you like to restart the app now to apply the update?',
+      buttons: ['Restart Now', 'Later']
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
